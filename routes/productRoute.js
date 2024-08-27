@@ -1,0 +1,12 @@
+import express from "express";
+import { getproductPage, createProductPage, getProductById, getTopProducts, getfilterProduct, updateProductById,deleteProductById } from "../controller/productController.js";
+import { checkAdmin } from "../middleware/auth.js";
+const router = express.Router();
+router.get("/", getproductPage);
+router.get("/top", getTopProducts);
+router.get("/filter", getfilterProduct);
+router.post("/", checkAdmin, createProductPage);
+router.put("/:id", checkAdmin, updateProductById);
+router.get("/:id", getProductById);
+router.delete("/delete/:id", checkAdmin, deleteProductById);
+export default router;
