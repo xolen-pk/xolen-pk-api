@@ -298,10 +298,7 @@ export const getProductByTitle = async (req, res) => {
     });
 
     if (products.length > 0) {
-      res.json({
-        data: products,
-        message: `Products matching "${searchTerm}"`,
-      });
+      res.status(200).json(products);
     } else {
       res.status(404).json({ message: "No products found" });
     }
