@@ -4,37 +4,40 @@ import productModel from "../models/productModel.js";
 // Provides all the products based on the query parameters
 export const getproductPage = async (req, res) => {
   try {
-    const parsedPage = parseInt(req.query.page, 12);
-    const parsedLimit = parseInt(req.query.limit, 12);
-    req.query.page = isNaN(parsedPage) ? req.query.page : parsedPage.toString();
-    req.query.limit = isNaN(parsedLimit) ? req.query.limit : parsedLimit.toString();
+    const page = parseInt(req.query.page) ?? 1;
+    const limit = parseInt(req.query.limit) ?? 12;
+    const searchTerm = req.query.search || "";
+
     const features = new APIfeatures(productModel.find(), req.query)
       .sorting()
       .paginating()
       .filtering();
+
+    // Apply search filter
+    features.query = features.query.find({
+      title: { $regex: searchTerm, $options: "i" }, // Case-insensitive search
+    });
+
     const data = await features.query;
-    const paginateRemaining = features.paginate;
-    const skip = paginateRemaining.skip ?? 0;
-    const limit = paginateRemaining.limit ?? 12;
-    const running = await productModel
-      .find(features.queryString)
-      .find({ shoeFor: "Running" })
-      .skip(skip)
-      .limit(limit);
-    const lounging = await productModel
-      .find(features.queryString)
-      .find({ shoeFor: "Lounging" })
-      .skip(skip)
-      .limit(limit);
-    const everyday = await productModel
-      .find(features.queryString)
-      .find({ shoeFor: "Everyday" })
-      .skip(skip)
-      .limit(limit);
+
+    const skip = (page - 1) * limit;
+
+    // Fetch running, lounging, and everyday products concurrently
+    const shoeTypes = ["Running", "Lounging", "Everyday"];
+    const shoeQueries = await Promise.all(
+      shoeTypes.map((type) =>
+        productModel
+          .find({ ...features.queryString, shoeFor: type })
+          .skip(skip)
+          .limit(limit)
+      )
+    );
+    const [running, lounging, everyday] = shoeQueries;
+
     res.status(200).json({ data, running, lounging, everyday });
   } catch (error) {
     console.log(error);
-    res.status(404).json({ message: error });
+    res.status(404).json({ message: error.message });
   }
 };
 
@@ -60,7 +63,7 @@ export const createProductPage = async (req, res) => {
     quantity,
     shoeFor,
     brand,
-    discountedPrice
+    discountedPrice,
   } = req.body;
   try {
     if (!title || !description) {
@@ -114,11 +117,9 @@ export const createProductPage = async (req, res) => {
       quantity,
       shoeFor,
       brand,
-      discountedPrice
+      discountedPrice,
     });
 
-
-    
     // console.log('=== saving data ===');
     // console.log(productPageData);
     const savedproductPage = await productPageData.save();
@@ -147,7 +148,7 @@ export const updateProductById = async (req, res) => {
     quantity,
     shoeFor,
     brand,
-    discountedPrice, 
+    discountedPrice,
   } = req.body;
   try {
     // console.log(req.params);
@@ -204,7 +205,7 @@ export const updateProductById = async (req, res) => {
         quantity,
         shoeFor,
         brand,
-        discountedPrice, 
+        discountedPrice,
       },
       { new: true }
     );
@@ -246,10 +247,18 @@ export const getfilterProduct = async (req, res) => {
     }
     const brand = data.map((item) => item.brand);
     const category = data.map((item) => item.category).flat();
-    const allBrand = brand.filter((item) => item !== undefined && item !== null);
-    const allCategory = category.filter((item) => item !== undefined && item !== null);
-    const brandCapatalize = allBrand.map((item) => item.charAt(0).toUpperCase() + item.slice(1));
-    const categoryCapatalize = allCategory.map((item) => item.charAt(0).toUpperCase() + item.slice(1));
+    const allBrand = brand.filter(
+      (item) => item !== undefined && item !== null
+    );
+    const allCategory = category.filter(
+      (item) => item !== undefined && item !== null
+    );
+    const brandCapatalize = allBrand.map(
+      (item) => item.charAt(0).toUpperCase() + item.slice(1)
+    );
+    const categoryCapatalize = allCategory.map(
+      (item) => item.charAt(0).toUpperCase() + item.slice(1)
+    );
     const uniqueBrand = [...new Set(brandCapatalize)];
     const uniqueCategory = [...new Set(categoryCapatalize)];
     res.json({
@@ -277,15 +286,37 @@ export const deleteProductById = async (req, res) => {
     res.status(404).json({ message: error.message });
     // console.log(error);
   }
-}
+};
 
 // Provides the product details based on the title
 export const getProductByTitle = async (req, res) => {
-  const { title } = req.params;
+  const searchTerm = req.query.title;
+  console.log(searchTerm);
   try {
-    const ProductByTitle = await productModel.find({ title: title });
-    if (ProductByTitle) {
-      res.json({ data: ProductByTitle, message: "Product " + title });
+    const products = await productModel.find({
+      title: { $regex: searchTerm, $options: "i" },
+    });
+
+    if (products.length > 0) {
+      res.json({
+        data: products,
+        message: `Products matching "${searchTerm}"`,
+      });
+    } else {
+      res.status(404).json({ message: "No products found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Provides the product details based on the category
+export const getProductByCategory = async (req, res) => {
+  const { category } = req.params;
+  try {
+    const ProductByCategory = await productModel.find({ category: category });
+    if (ProductByCategory) {
+      res.json({ data: ProductByCategory, message: "Product " + category });
     } else {
       res.status(404).json({ message: "Product not found" });
     }
