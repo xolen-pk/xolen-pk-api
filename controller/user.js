@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import Product from "../models/productModel.js";
 import User from "../models/user.js";
 import verifyUser from "../models/valideUser.js";
 import { CheckoutEmail, sendVerificationEmail } from "../Utils/nodemailer.js";
-import Product from "../models/productModel.js";
 import { APIfeatures } from "./paginate.js";
 
 const generateToken = (data) => {
@@ -141,7 +142,8 @@ export const signup = async (req, res) => {
     ) {
       res.status(400).json({ message: "Please fill all the fields" });
       return;
-    } else if (password.length < 6) { // check if password is less than 6 characters
+    } else if (password.length < 6) {
+      // check if password is less than 6 characters
       res
         .status(400)
         .json({ message: "Password must be at least 6 characters long" });
@@ -280,7 +282,6 @@ export const removeWishlist = async (req, res) => {
   }
 };
 
-// getWishlist function to get all products in wishlist and give callback token to frontend with data
 export const getWishlist = async (req, res) => {
   try {
     const user = req.user;
@@ -288,15 +289,24 @@ export const getWishlist = async (req, res) => {
       res.status(404).json({ message: "User not found" });
       return;
     }
+
+    // Ensure page and limit are numbers
     req.query.page = String(parseInt(req.query.page));
     req.query.limit = String(parseInt(req.query.limit));
+
+    // Validate wishlist items
+    const validWishlist = user.wishlist.filter((item) =>
+      mongoose.Types.ObjectId.isValid(item)
+    );
+
     const features = new APIfeatures(
-      Product.find({ _id: { $in: user.wishlist } }),
+      Product.find({ _id: { $in: validWishlist } }),
       req.query
     )
       .sorting()
       .paginating()
       .filtering();
+
     const data = await features.query;
     const token = generateToken(user);
     res.status(200).json({ token, data });

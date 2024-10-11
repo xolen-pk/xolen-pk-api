@@ -1,4 +1,4 @@
-const Order = require("./../models/order");
+import Order from "../models/Order.js";
 
 export const createOrder = async (req, res) => {
   try {
@@ -71,7 +71,7 @@ export const getOrders = async (req, res) => {
   }
 };
 
-export const getOrderByID = async (req, res) => {
+export const getOrderById = async (req, res) => {
   try {
     // Extract the order ID from the request parameters
     const { id } = req.params;
